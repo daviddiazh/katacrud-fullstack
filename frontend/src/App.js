@@ -1,18 +1,21 @@
-import React, {useContext, useReducer, useEffect, useRef, useState, createContext} from "react";
+import React, { useContext, useReducer, useEffect, useRef, useState, createContext } from "react";
 
+// Esta es la conexion al api con springboot
 const HOST_API = "http://localhost:8080/api"
 const initialState = {
   list: [],
   item: {}
 }
+// Esta es la variable que nos permite crear el contexto
 const Store = createContext(initialState)
 
+// Esta es la funcion que nos permite crear el formulario
 const Form = () => {
   const formRef = useRef(null);
-  const { dispatch, state: {item} } = useContext(Store);
-  const [state, setState] = useState({});
+  const { dispatch, state: { item } } = useContext(Store);
+  const [state, setState] = useState(item);
 
-
+  // Esto es para que cuando el usuario da click agregue un nuevo item a la lista
   const onAdd = (event) => {
     event.preventDefault();
 
@@ -21,7 +24,7 @@ const Form = () => {
       id: null,
       isCompleted: false
     };
-  
+
     fetch(HOST_API + "/todo", {
       method: "POST",
       body: JSON.stringify(request),
@@ -37,15 +40,16 @@ const Form = () => {
       });
   }
 
+  // Esta funcion se ejecuta cuando el usuario da click al boton de editar
   const onEdit = (event) => {
     event.preventDefault();
 
     const request = {
       name: state.name,
       id: item.id,
-      isCompleted: item.isComplete
+      isCompleted: item.isCompleted
     };
-  
+
     fetch(HOST_API + "/todo", {
       method: "PUT",
       body: JSON.stringify(request),
@@ -60,35 +64,36 @@ const Form = () => {
         formRef.current.reset();
       });
   }
-  
 
-  return <form ref= {formRef}>
-    <input type= "text" name = "name" onChange={(event)=> {
-      setState({...state, name: event.target.value})
+// Aqui retornamos un formulario con los campos de nombre y botones de agregar y editar dependiendo del estado actual
+  return <form ref={formRef}>
+    <input type="text" name="name" defaultValue={item.name} onChange={(event) => {
+      setState({ ...state, name: event.target.value })
     }}></input>
-    <button onClick={onAdd}>Agregar</button>
+    {item.id && <button onClick={onEdit}>Actualizar</button>}
+    {!item.id && <button onClick={onAdd}>Agregar</button>}
   </form>
 }
 
-const List = () =>{
-  const{dispatch, state} = useContext(Store);
-  
-  useEffect(() =>{
-    fetch(HOST_API+"/todos")
-    .then(response => response.json())
-    .then((list) => {
-      dispatch({type: "update-list", list})
-    })
-  }, [state.list.length, dispatch]);
+// Esta es la funcion que nos permite crear la lista con los items
+const List = () => {
+  const { dispatch, state } = useContext(Store);
 
+  useEffect(() => {
+    fetch(HOST_API + "/todos")
+      .then(response => response.json())
+      .then((list) => {
+        dispatch({ type: "update-list", list })
+      })
+  }, [state.list.length, dispatch]);
 
   const onDelete = (id) => {
     fetch(HOST_API + "/" + id + "/todo", {
       method: "DELETE"
     })
-    .then((List) => {
-      dispatch({ type: "delete-item", id})
-    })
+      .then((list) => {
+        dispatch({ type: "delete-item", id })
+      })
   };
 
   const onEdit = (todo) => {
@@ -96,64 +101,73 @@ const List = () =>{
   };
 
   return <div>
-  <table >
-    <thead>
-      <tr>
-        <td>ID</td>
-        <td>Nombre</td>
-        <td>¿Completado?</td>
-      </tr>
-    </thead>
-    <tbody>
-      {state.list.map((todo) => {
-        return <tr key={todo.id}>
-          <td>{todo.id}</td>
-          <td>{todo.name}</td>
-          <td>{todo.isComplete}</td>
-          <td><button onClick={() => onDelete(todo.id)}>Eliminar</button></td>
-          <td><button onClick={() => onEdit(todo)}>Editar</button></td>
+    <table >
+      <thead>
+        <tr>
+          <td>ID</td>
+          <td>Nombre</td>
+          <td>¿Completado?</td>
         </tr>
-      })}
-    </tbody>
-  </table>
-</div>
+      </thead>
+      <tbody>
+        {state.list.map((todo) => {
+          return <tr key={todo.id}>
+            <td>{todo.id}</td>
+            <td>{todo.name}</td>
+            <td>{todo.isComplete === true ? "SI" : "NO"}</td>
+            <td><button onClick={() => onDelete(todo.id)}>Eliminar</button></td>
+            <td><button onClick={() => onEdit(todo)}>Editar</button></td>
+          </tr>
+        })}
+      </tbody>
+    </table>
+  </div>
 }
 
+// Esta es la funcion que nos permite actualizar el estado tomando a eleccion el estado actual y el nuevo estado
 function reducer(state, action) {
   switch (action.type) {
+    case 'update-item':
+      const listUpdateEdit = state.list.map((item) => {
+        if (item.id === action.item.id) {
+          return action.item;
+        }
+        return item;
+      });
+      return { ...state, list: listUpdateEdit, item: {} };
     case 'delete-item':
-      const listUpdate = state.filter((item) => {
-        return item.id !== action.id;
+      const listUpdate = state.list.filter((item) => {
+        return item.id !== action.id
       });
       return { ...state, list: listUpdate }
     case 'update-list':
       return { ...state, list: action.list }
-    case 'edit-list':
-      return { ...state, item: action.edit }
+    case 'edit-item':
+      return { ...state, item: action.item }
     case 'add-item':
-        const newList = state.list;
-        newList.push(action.item);
-        return {...state, list: newList}
+      const newList = state.list;
+      newList.push(action.item);
+      return { ...state, list: newList }
     default:
       return state;
   }
 }
 
-const StoreProvider = ({children}) => {
-  
+// Esta es la funcion que nos permite crear el contexto
+const StoreProvider = ({ children }) => {
+
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  return <Store.Provider value = {{state,dispatch}}>
+  return <Store.Provider value={{ state, dispatch }}>
     {children}
   </Store.Provider>
 }
 
-
+// Esta es la funcion principal de la aplicacion
 function App() {
   return (
     <StoreProvider>
-      <Form/>
-
+      <Form />
       <List />
     </StoreProvider>
   );
