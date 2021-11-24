@@ -2,13 +2,14 @@ import React, {useContext, useReducer, useEffect, useRef, useState, createContex
 
 const HOST_API = "http://localhost:8080/api"
 const initialState = {
-  list: []
+  list: [],
+  item: {}
 }
 const Store = createContext(initialState)
 
 const Form = () => {
   const formRef = useRef(null);
-  const{dispatch} = useContext(Store);
+  const { dispatch, state: {item} } = useContext(Store);
   const [state, setState] = useState({});
 
 
@@ -35,6 +36,30 @@ const Form = () => {
         formRef.current.reset();
       });
   }
+
+  const onEdit = (event) => {
+    event.preventDefault();
+
+    const request = {
+      name: state.name,
+      id: item.id,
+      isCompleted: item.isComplete
+    };
+  
+    fetch(HOST_API + "/todo", {
+      method: "PUT",
+      body: JSON.stringify(request),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then((todo) => {
+        dispatch({ type: "update-item", item: todo });
+        setState({ name: "" });
+        formRef.current.reset();
+      });
+  }
   
 
   return <form ref= {formRef}>
@@ -56,6 +81,20 @@ const List = () =>{
     })
   }, [state.list.length, dispatch]);
 
+
+  const onDelete = (id) => {
+    fetch(HOST_API + "/" + id + "/todo", {
+      method: "DELETE"
+    })
+    .then((List) => {
+      dispatch({ type: "delete-item", id})
+    })
+  };
+
+  const onEdit = (todo) => {
+    dispatch({ type: "edit-item", item: todo })
+  };
+
   return <div>
   <table >
     <thead>
@@ -71,6 +110,8 @@ const List = () =>{
           <td>{todo.id}</td>
           <td>{todo.name}</td>
           <td>{todo.isComplete}</td>
+          <td><button onClick={() => onDelete(todo.id)}>Eliminar</button></td>
+          <td><button onClick={() => onEdit(todo)}>Editar</button></td>
         </tr>
       })}
     </tbody>
@@ -80,9 +121,16 @@ const List = () =>{
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'delete-item':
+      const listUpdate = state.filter((item) => {
+        return item.id !== action.id;
+      });
+      return { ...state, list: listUpdate }
     case 'update-list':
-      return {...state, list: action.list}
-      case 'add-item':
+      return { ...state, list: action.list }
+    case 'edit-list':
+      return { ...state, item: action.edit }
+    case 'add-item':
         const newList = state.list;
         newList.push(action.item);
         return {...state, list: newList}
